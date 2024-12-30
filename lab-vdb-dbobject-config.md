@@ -1,0 +1,213 @@
+```python
+# 미 문서는 lab 환경에서 쓰이는 오라클 벡터 테이블들을 준비하는 문서임.
+
+# import libraries & DB connection
+import array
+import os
+import oracledb
+
+uname = "vector"
+pwd = "vector"
+cns = "localhost:1521/freepdb1"
+
+oracledb.init_oracle_client()
+connection = oracledb.connect(user=uname, password=pwd, dsn=cns)
+cursor = connection.cursor()
+print("Connected to Oracle Database 23.4")
+
+```
+
+    Connected to Oracle Database 23.4
+
+
+
+```python
+# 테이블 drop
+
+droptab = """drop table if exists creditcardtr purge"""
+cursor.execute(droptab)
+print("dropped a creditcardtr Table")
+```
+
+    dropped a creditcardtr Table
+
+
+
+```python
+# 크레딧 카드 트랜잭션 테이블(creditcardtr) 생성
+# 이 테이블 데이터는 모델 학습(DB 데이터 기번으로한 모델 학습 경우), 벡터검색 타겟 테이블 등 몇가지 용도로 활용됨.
+# creditcardtr 테이블에는 벡터 컬럼이 포함됨.
+# 벡터 컬럼의 데이터 타입 지정은 사용하는 모델의 데이터 타입의 길이와 같아야 함.
+
+CreateTable = """
+create table if not exists creditcardtr(
+id number generated as identity primary key,
+time number,
+v1 number,
+v2 number,
+v3 number,
+v4 number,
+v5 number,
+v6 number,
+v7 number,
+v8 number,
+v9 number,
+v10 number,
+v11 number,
+v12 number,
+v13 number,
+v14 number,
+v15 number,
+v16 number,
+v17 number,
+v18 number,
+v19 number,
+v20 number,
+v21 number,
+v22 number,
+v23 number,
+v24 number,
+v25 number,
+v26 number,
+v27 number,
+v28 number,
+amount number,
+class number,
+v vector(5,float64),
+dset char(20)
+)
+"""
+
+cursor.execute(CreateTable)
+print("Created creditcardtr Table")
+```
+
+```shell
+# Created creditcardtr Table
+
+# loading data as creditcard.csv
+# create loader file as creditcardtr_load.ctl
+options (skip = 1)
+LOAD DATA
+INFILE "creditcard.csv"
+APPEND
+INTO TABLE creditcardtr
+FIELDS TERMINATED BY ','
+TRAILING NULLCOLS
+(
+time integer external,
+v1 integer external,
+v2 integer external,
+v3 integer external,
+v4 integer external,
+v5 integer external,
+v6 integer external,
+v7 integer external,
+v8 integer external,
+v9 integer external,
+v10 integer external,
+v11 integer external,
+v12 integer external,
+v13 integer external,
+v14 integer external,
+v15 integer external,
+v16 integer external,
+v17 integer external,
+v18 integer external,
+v19 integer external,
+v20 integer external,
+v21 integer external,
+v22 integer external,
+v23 integer external,
+v24 integer external,
+v25 integer external,
+v26 integer external,
+v27 integer external,
+v28 integer external,
+amount integer external,
+class integer external)
+```
+```shell
+# 데이터 로딩
+sqlldr vector/vector@freepdb1 control=creditcardtr_load.ctl
+
+...
+Commit point reached - logical record count 284668
+Commit point reached - logical record count 284799
+Commit point reached - logical record count 284807
+
+Table CREDITCARDTR:
+  284807 Rows successfully loaded.
+```
+
+```python
+# dset 컬럼 값은 참고용임으로 상황에 따라서 명시적으로 변경할 수 있음
+
+dset_update0 = """update creditcardtr set dset = 'test' where  class = 0 and rownum < 6 """
+dset_update1 = """update creditcardtr set dset = 'test' where  class = 1 and rownum < 6 """
+cursor.execute(dset_update1)
+cursor.execute(dset_update0)
+connection.commit()
+
+dset_update2 = """update creditcardtr set dset = 'train' where dset is null"""
+
+cursor.execute(dset_update2)
+connection.commit()
+print("Update dset column")
+```
+
+    Update dset column
+
+
+
+```python
+# create view for model testing
+# cardtr view
+
+creditcard_view = """create or replace view creditcard_v as (select * from creditcardtr where dset = 'train')  """
+cursor.execute(creditcard_view)
+q_cardlab_view = """select class, count(*) from creditcard_v group by class """
+result= cursor.execute(q_cardlab_view).fetchall()
+print("train dataset in creditcard_v : ", result)
+
+cardtr_view = """create or replace view cardtr_v as (select * from creditcardtr where dset = 'test')"""
+cursor.execute(cardtr_view)
+      
+q_cardtr_view = """select class, count(*) from cardtr_v group by class """
+result= cursor.execute(q_cardtr_view).fetchall()
+print("test dataset in cardtr_v : ", result)
+```
+
+    train dataset in creditcard_v :  [(0, 284310), (1, 487)]
+    test dataset in cardtr_v :  [(0, 5), (1, 5)]
+
+
+
+```python
+# review tables
+q_creditcard_v = """select * from creditcard_v fetch first 5 rows only"""
+q_creditcard_v = cursor.execute(q_creditcard_v).fetchall()
+print("creditcard_v : ",q_creditcard_v)
+
+```
+
+    creditcard_v :  [(75, 48, -1.79340624422786, 1.85460399082838, 0.979513976644481, 1.11226152645262, -0.206402962131258, -0.199545668092445, 0.6166424042353, 0.0641803531775705, 0.690271532341837, 1.55172381714636, -0.16196484167768, 0.424213060982246, 0.0159444010110314, -0.405832818314697, 0.271930432913219, -1.42302064864536, 0.676324382969801, -0.911048300036704, 0.461845498112606, 0.667846871696291, -0.180722525691681, 0.235138169654476, -0.0914415713260925, 0.417654473831525, 0.122733846237321, -0.232985041190746, 0.811879841478301, 0.618568311939622, 26.72, 0, None, 'train               '), (76, 49, 1.09860834614642, 0.202423563829101, 0.525455971945753, 1.32343627201394, -0.130486421204476, 0.0399243070766149, 0.0283794159028238, 0.0728410708847139, -0.0978693519806861, 0.0195129951686423, 1.47441332090063, 1.68967421758435, 0.506780523264567, 0.125136664522659, -0.89270971177356, -0.621679133317781, 0.0443402665913568, -0.642093954200622, -0.161986891000608, -0.128040892456864, -0.0249716784462107, 0.154264260038072, -0.0631467432547598, 0.253205307138793, 0.629405434975953, -0.345344655387218, 0.0404693378711826, 0.010263750026757, 13.18, 0, None, 'train               '), (77, 49, -0.549626144798035, 0.418949153525597, 1.72983325235597, 0.203065373845713, -0.187012387610491, 0.253877551885213, 0.500893777771598, 0.251255794962937, -0.227984854678695, -0.57616941989126, 1.10203189400426, 0.823707807488722, -0.569509883571002, 0.00871007349263582, -1.04141380966471, -0.603403099556728, 0.225483728892329, -0.352132599922745, 0.194946380855442, 0.0169703706662638, 0.115062465548237, 0.418528728119492, -0.0651327882454082, 0.264980785082018, 0.00395822034181825, 0.395968888989273, 0.027182102239278, 0.0435057557098948, 59.99, 0, None, 'train               '), (78, 49, 0.921543679723553, -0.0670837542257563, 0.0774610275787093, 0.953638217022313, 0.0674124629108227, 0.0161524649547512, 0.32045155695341, 0.0385340276125158, -0.391512665081147, 0.0315602452397677, 1.39169118010671, 1.07936321996869, 0.106267711683997, 0.665985251334808, 0.44225355774887, 0.122646354959781, -0.492391586114359, -0.535140313996294, -0.0780818341113634, 0.120050785637899, -0.333929581340575, -1.29991956674342, 0.0843109903360168, -0.370397871198817, 0.155101565371628, -0.834490365033198, 0.000909065197964509, 0.035546875724878, 135.51, 0, None, 'train               '), (79, 50, -0.571520749961747, 1.07160044939815, 1.28011024961142, 0.542780003052458, 0.574438986516567, -0.259359265830457, 1.0611484151742, -0.410971967925814, -0.17913018113825, 1.00350065764887, 1.06238226849436, 0.159422388058099, -0.2898603137468, 0.00580474635482856, 0.46044095320685, -0.22103526461389, -0.775852454545776, 0.657023315008206, 0.80758291868891, 0.354730634765855, 0.00355852008044498, 0.561240486431022, -0.199286719692043, 0.00138738938225278, -0.179529951929609, -0.374115725753305, 0.0716414539902948, -0.175510468698003, 9.79, 0, None, 'train               ')]
+
+
+
+```python
+# review tables
+
+q_cardtr_v = """select * from cardtr_v fetch first 5 rows only"""
+q_cardtr_v = cursor.execute(q_cardtr_v).fetchall()
+print("creditcard_v : ",q_cardtr_v)
+
+```
+
+    creditcard_v :  [(70, 46, -1.92321320363186, -0.870482324116727, 2.32016962893044, 1.98877580146727, 0.417090785024797, -0.380013723200936, 0.472139269598768, -0.557333241041249, -0.649079050397235, 1.41088888300776, -0.517736958000633, -0.985201772757918, -0.400594745446622, -0.830664635864875, 0.338009486308628, 0.0299241758036659, 0.37115031113381, -1.05431867206706, 1.89036392388461, -0.36922739831731, -0.686487767489979, -0.779267566437133, 1.08605501915054, 0.518863427142479, -0.363712017511894, 3.06557569653728, -0.589022174639728, -0.396109822649589, 35, 0, None, 'test                '), (71, 46, 1.00658858258061, -0.0711053573592864, 0.347613710129268, 1.32968404626518, -0.193239540558001, 0.155418220951582, 0.00857355004537538, 0.146537701158532, 0.103844303499997, 0.0318300248431995, 1.07098086659495, 0.940664826248853, -0.729473777220335, 0.380114784646787, -0.729126304640312, -0.493402464675541, 0.0435558761530204, -0.405289649578765, -0.092584543842081, -0.091366856699256, -0.0202386866152166, -0.0188806243664369, -0.120966187234267, 0.0273817885188254, 0.59386362410547, -0.334687921975777, 0.0213680104004056, 0.0150804012744551, 67.97, 0, None, 'test                '), (72, 46, -0.378244634508222, 0.732925473144789, -0.12015421084374, 0.18575507207311, 2.59426949152718, 3.79718265118537, 0.0590879612001456, 0.976768278020551, -0.412660864918736, 0.0067536882536664, -0.624666242175613, -0.115851957802005, -0.215037272965066, 0.14044940338935, 0.160265566475215, -0.601890179366329, -0.144355315240532, 0.221557464920078, 1.45485216223185, 0.315571560739074, -0.107581845449129, -0.157139517354471, -0.194659196235448, 1.01389734659882, 0.145503366823794, -0.237619522591439, 0.411371737390151, 0.202788454962588, 11.45, 0, None, 'test                '), (73, 47, 1.19783859904952, 0.236827617702066, 0.509605001633564, 0.657658659875326, -0.365487846531556, -0.745101067219334, 0.079497447992953, -0.130535519206068, -0.0522631188334045, -0.110057897667251, 0.307131474741218, 0.670664429232084, 0.437973609417859, 0.269026235243189, 1.12741944172679, -0.196922570885677, 0.00770367393603528, -1.12264047790795, -0.590917690926777, -0.120981428275126, -0.149875596688501, -0.374210667597001, 0.145515985807902, 0.414983921314997, 0.212156010664903, 0.181724249919295, -0.0164021340612288, 0.0159942089881169, 3.63, 0, None, 'test                '), (74, 48, -0.580628965016257, 0.482683933097182, 1.33312308028373, -0.253080022676203, -0.0284689398233383, -0.519165700319527, 0.503249460809705, 0.117773482896021, 0.117112238017822, -0.420487538793211, 0.449718913713424, -0.0178648303429265, -1.98382317941023, 0.321663489232864, -1.42530187959129, 0.125194163398465, -0.404409451618886, 0.0977768572186709, -0.0205312679140408, -0.298750730213523, -0.0421423262477711, -0.148707275565971, 0.00145116497714452, 0.302764487325416, -0.680714199200363, -0.0155539239808445, -0.00630700434213483, 0.164222205343532, 21.66, 0, None, 'test                ')]
+
+
+
+```python
+
+```

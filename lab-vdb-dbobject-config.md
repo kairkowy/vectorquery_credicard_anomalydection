@@ -1,5 +1,5 @@
 ```python
-# 미 문서는 lab 환경에서 쓰이는 오라클 벡터 테이블들을 준비하는 문서임.
+# 이 문서는 lab 환경에서 쓰이는 오라클 벡터 테이블들을 준비하는 문서임.
 
 # import libraries & DB connection
 import array

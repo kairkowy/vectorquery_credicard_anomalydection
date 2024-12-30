@@ -36,7 +36,7 @@ print("Complete libraries loading")
 ```python
 # 데이터 원본 둘러보기
 #  creditcard.csv(https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud) 데이터는 kaggle에서 제공하는 샘플 데이터를 사용했음.
-# 데이터 일부 로우는 벡터쿼리 테스트용으로 별도 분리해서 사용함.
+# 데이터 중 일부 로우는 벡터쿼리 테스트용으로 별도 분리해서 사용함.
 
 pd.set_option('display.max_columns',None) # 전체 열 출력
 #pd.set_option('display.max_rows',None) # 전체 행 출력
